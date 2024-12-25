@@ -1,5 +1,7 @@
-###DisPlotSpatial 
 
+
+
+###DisPlotSpatial 
 
 FindPrimSpot <- function(seurat.obj,celltype_prop,celltype=NULL,probs=0.9){
   st.p3 <- seurat.obj
@@ -13,10 +15,49 @@ FindPrimSpot <- function(seurat.obj,celltype_prop,celltype=NULL,probs=0.9){
 }
 
 
+
+
+### calculate_distance 
+calculate_distance <- function(query_col,query_row, ref_col,ref_row) {
+  sqrt((query_col - ref_col)^2 + (query_row - ref_row)^2)
+}
+
+
+###find_nearest_ref
+
+find_nearest_ref <- function(query_col,query_row, ref_spot,max.r=50) {
+  if(is.null(max.r))
+  {max.r=999}
+  min.dis=max.r+1
+  nearest_ref='None'
+  ref_spot.filt <- ref_spot[abs(ref_spot$row-query_row)<=max.r & abs(ref_spot$col-query_col)<=max.r,]
+  strength.sum=0
+  strength=0
+  if(length(rownames(ref_spot.filt))!=0){
+    
+    for( i in 1:length(rownames(ref_spot.filt))){
+      distances=calculate_distance(query_col = query_col,query_row = query_row, 
+                                   ref_col = ref_spot.filt[i, 'col'],
+                                   ref_row = ref_spot.filt[i,'row']
+      )
+      strength.sum=strength.sum+1/log(distances+1)
+      nearest_ref=ifelse(min.dis>distances,rownames(ref_spot.filt)[i],
+                         ifelse(min.dis==distances,paste0(nearest_ref,',',rownames(ref_spot.filt)[i]),nearest_ref))
+      min.dis=ifelse(min.dis>distances,distances,min.dis)
+      
+      # temp.df <- data.frame(ref=NULL,dis=NULL)
+      # temp.df <- rbind(temp.df,data.frame(rownames(ref_spot)[i],distances))
+      # print(temp.df)
+    }
+    strength=ifelse(min.dis<=max.r,length(str_split(nearest_ref,pattern = ',')[[1]]),0)
+  }
+
+  return(c(nearest_ref, min.dis,strength,strength.sum))
+}
+
 ###CalcNearDis 
 
-
-CalcNearDis <- function(seurat.obj,celltype,pheno_choose=NULL){
+CalcNearDis <- function(seurat.obj,celltype,pheno_choose=NULL,calc.strength=FALSE,max.r=10){
   
   st.p3 <- seurat.obj
   names(st.p3@images) <- 'image1'
@@ -32,39 +73,46 @@ CalcNearDis <- function(seurat.obj,celltype,pheno_choose=NULL){
   query_spot <- query_spot[query_spot$tissue==1,]
 
   
-  calculate_distance <- function(query_col,query_row, ref_col,ref_row) {
-    sqrt((query_col - ref_col)^2 + (query_row - ref_row)^2)
-  }
   
-  find_nearest_ref <- function(query_col,query_row, ref_spot) {
-    min.dis=999
-    nearest_ref=''
-    for( i in 1:length(rownames(ref_spot))){
-      distances=calculate_distance(query_col = query_col,query_row = query_row, 
-                                   ref_col = ref_spot[i, 'col'],
-                                   ref_row = ref_spot[i,'row']
-      )
-      nearest_ref=ifelse(min.dis>distances,rownames(ref_spot)[i],nearest_ref)
-      min.dis=ifelse(min.dis>distances,distances,min.dis)
-      # temp.df <- data.frame(ref=NULL,dis=NULL)
-      # temp.df <- rbind(temp.df,data.frame(rownames(ref_spot)[i],distances))
-      # print(temp.df)
+  
+  # find_nearest_ref(query_col = 43,query_row = 3,ref_spot = ref_spot)
+  # #"PDACP_8_GTCTATCTGAGTTTCT-1" "12"  
+  # SpatialDimPlot(st.p3,cells.highlight =list (query='PDACP_8_AAACTGCTGGCTCCAA-1',
+  #                                             ref_nearst='PDACP_8_TACGACTGCCTCTTAG-1',
+  #                                             all_other_ref=rownames(ref_spot)[rownames(ref_spot)!='PDACP_8_TACGACTGCCTCTTAG-1']
+  # ),
+  # cols.highlight = c('darkred','darkgreen','darkblue','white')
+  # ,pt.size.factor = 4e3)
+  if(!calc.strength){
+    nearest_ref_info <- data.frame(query_barcode='',distance='',nearst_barcode='')
+    for( i in 1:length(rownames(query_spot))){
+      res=find_nearest_ref(query_col = query_spot[i,c('col')],
+                           query_row = query_spot[i,c('row')],
+                           ref_spot =ref_spot ,max.r = max.r)
+      nearest_ref_info <- rbind(nearest_ref_info,data.frame(query_barcode=rownames(query_spot)[i],
+                                                            distance=res[2],
+                                                            nearst_barcode=res[1]))
+      
     }
-    
-    return(c(nearest_ref, min.dis))
+    nearest_ref_info <- nearest_ref_info[-1,]
+  }
+  else{
+    nearest_ref_info <- data.frame(query_barcode='',distance='',nearst_barcode='',strength=0,strength.sum=0)
+    for( i in 1:length(rownames(query_spot))){
+      res=find_nearest_ref(query_col = query_spot[i,c('col')],
+                           query_row = query_spot[i,c('row')],
+                           ref_spot =ref_spot ,max.r = max.r)
+      nearest_ref_info <- rbind(nearest_ref_info,data.frame(query_barcode=rownames(query_spot)[i],
+                                                            distance=res[2],strength=res[3],strength.sum=res[4],
+                                                            nearst_barcode=res[1]))
+      
+    }
+    nearest_ref_info$strength <- as.numeric(nearest_ref_info$strength)
+    nearest_ref_info$strength.sum <- as.numeric(nearest_ref_info$strength.sum)
+    nearest_ref_info <- nearest_ref_info[-1,]
   }
   
-
-  nearest_ref_info <- data.frame(query_barcode='',distance='',nearst_barcode='')
-  for( i in 1:length(rownames(query_spot))){
-    res=find_nearest_ref(query_col = query_spot[i,c('col')],
-                         query_row = query_spot[i,c('row')],
-                         ref_spot =ref_spot )
-    nearest_ref_info <- rbind(nearest_ref_info,data.frame(query_barcode=rownames(query_spot)[i],
-                                                          distance=res[2],
-                                                          nearst_barcode=res[1]))
-  }
-  nearest_ref_info <- nearest_ref_info[-1,]
+  
   return(nearest_ref_info)
   
 }
@@ -72,6 +120,7 @@ CalcNearDis <- function(seurat.obj,celltype,pheno_choose=NULL){
 
 
 ###PlotNearDis 
+
 
 
 PlotNearDis <- function(seurat.obj,nearest_ref_info,color=NULL,max.dis=20,image.alpha = 0,pt.size.factor = 4e3){
@@ -93,11 +142,70 @@ PlotNearDis <- function(seurat.obj,nearest_ref_info,color=NULL,max.dis=20,image.
 
 
 
+###PlotStrengthDis
+PlotStrengthDis <- function(seurat.obj,nearest_ref_info,color=NULL,image.alpha = 0,pt.size.factor = 4e3){
+  st.p3 <- seurat.obj
+  st.p3$distance=0
+  st.p3@meta.data[nearest_ref_info$query_barcode,'distance']=as.numeric(nearest_ref_info$distance)
+  st.p3$distance <- as.numeric(st.p3$distance)
+  
+  st.p3$strength.sum=0
+  st.p3@meta.data[nearest_ref_info$query_barcode,'strength.sum']=as.numeric(nearest_ref_info$strength.sum)
+  #st.p3$strength.sum <- as.numeric(st.p3$strength.sum)
+  
+  if(is.null(color))
+    color=c('lightgrey','darkgreen')
+  
+  
+  p4 <- SpatialFeaturePlot(subset(st.p3,distance>0),features = 'strength.sum',
+                           image.alpha = image.alpha,pt.size.factor = 4e3)+
+    scale_fill_gradient(low = color[1],high = color[2])
+  return(p4)
+  
+}
+
+
+
+###PlotStrengthExpr 
+
+
+
+PlotStrengthExpr <- function(seurat.obj,nearest_ref_info,color=NULL,image.alpha = 0,pt.size.factor = 4e3,layer='data',assay='SCT',gene){
+  st.p3 <- seurat.obj
+  st.p3$distance=0
+  st.p3@meta.data[nearest_ref_info$query_barcode,'distance']=as.numeric(nearest_ref_info$distance)
+  st.p3$distance <- as.numeric(st.p3$distance)
+  
+  st.p3$strength.sum=0
+  st.p3@meta.data[nearest_ref_info$query_barcode,'strength.sum']=as.numeric(nearest_ref_info$strength.sum)
+  #st.p3$strength.sum=1-st.p3$strength.sum/max(st.p3$strength.sum)
+  
+  #st.p3$strength.sum <- as.numeric(st.p3$strength.sum)
+  
+  
+  
+  
+  if(is.null(color))
+    color='darkgreen'
+  
+  
+  df <- st.p3@meta.data
+  df$target <- GetAssayData(st.p3,assay = assay,layer = layer)[gene,]
+  p6 <- ggpubr::ggscatter(df,x='strength.sum',y='target',conf.int = T,color =color ,
+                          xlab = 'Strength.sum',ylab = paste0('Relative Expression of ',gene),
+                          cor.coef = T,add = 'reg.line',size = 0.75,alpha=0.2,
+                          add.params = list(color='darkred'))
+  return(p6)
+  
+
+  
+}
+
+
 
 
 
 ###PlotDisExpr 
-
 PlotDisExpr <- function(seurat.obj,nearest_ref_info,ref_col,layer='data',assay='SCT',gene,log.trans=F){
   
   st.p3 <- seurat.obj
@@ -161,7 +269,4 @@ PlotDisProp <- function(seurat.obj,nearest_ref_info,ref_col,layer='data',assay='
   
   return(p6)
 }
-
-
-
 
