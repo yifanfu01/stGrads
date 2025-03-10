@@ -6,4 +6,5 @@ This package also supervised by Prof. Wei Chen (Beihang University)
 .  
 
 Contact& Bugs: yf_pumc#163.com  
-The tutorial handbook will be available soon.
+Tutorial for 10x Visium with Cell2location: [Visium Tutorial](Demo_for_Visium.r)  
+The other tutorial handbook will be available soon.
