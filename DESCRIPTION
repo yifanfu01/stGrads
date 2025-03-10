@@ -1,8 +1,7 @@
 Package: stGrads
 Title: Spatial RNA-seq tools
 Version: 0.1.1
-Authors@R: 
-    person("Yifan Fu", "yf_pumc@163.com", role = c('aut'))
+Authors@R:c(person("Yifan","Fu", email="yf_pumc@163.com", role = c('aut')))
 Description: stGrad package integrated several common tools and developed easy-to-use spatial gradient analysis.
 License: GPL-3
 Encoding: UTF-8
