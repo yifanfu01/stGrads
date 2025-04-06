@@ -65,7 +65,7 @@ FindPrimSpot <- function(seurat.obj,celltype_prop,celltype=NULL,probs=0.9){
   st.p3@meta.data[,celltype] <- ifelse(st.p3@meta.data[,celltype_prop]>
                                          quantile(st.p3@meta.data[,celltype_prop],probs=probs),
                                        celltype,'Others')
-
+  
   return(st.p3)
 }
 
@@ -178,7 +178,7 @@ CalcNearDis <- function(seurat.obj,celltype,pheno_choose=NULL,calc.strength=FALS
   
   ref_spot <- ref_spot[ref_spot$tissue==1,]
   query_spot <- query_spot[query_spot$tissue==1,]
-
+  
   if(!calc.strength){
     nearest_ref_info <- data.frame(query_barcode='',distance='',nearst_barcode='')
     for( i in 1:length(rownames(query_spot))){
@@ -252,15 +252,15 @@ CalcNearDis_HD <- function(seurat.obj,celltype,query_celltype=NULL,
   
   
   print(paste0('Query_spots numbers is:',length(rownames(query_spot))))
-
+  
   if(!calc.strength){
     nearest_ref_info <- data.frame(query_barcode='',distance='',nearst_barcode='')
     for( i in 1:length(rownames(query_spot))){
       if(i %% 10000 ==1)
-        {t.start=Sys.time()}
+      {t.start=Sys.time()}
       res=find_nearest_ref_HD(query_col = query_spot[i,c('x')],
-                           query_row = query_spot[i,c('y')],
-                           ref_spot =ref_spot ,max.r = max.r)
+                              query_row = query_spot[i,c('y')],
+                              ref_spot =ref_spot ,max.r = max.r)
       nearest_ref_info <- rbind(nearest_ref_info,data.frame(query_barcode=rownames(query_spot)[i],
                                                             distance=res[2],
                                                             nearst_barcode=res[1]))
@@ -283,8 +283,8 @@ CalcNearDis_HD <- function(seurat.obj,celltype,query_celltype=NULL,
       
       
       res=find_nearest_ref_HD(query_col = query_spot[i,c('x')],
-                           query_row = query_spot[i,c('y')],
-                           ref_spot =ref_spot ,max.r = max.r,model=model)
+                              query_row = query_spot[i,c('y')],
+                              ref_spot =ref_spot ,max.r = max.r,model=model)
       nearest_ref_info <- rbind(nearest_ref_info,data.frame(query_barcode=rownames(query_spot)[i],
                                                             distance=res[2],strength=res[3],strength.sum=res[4],
                                                             nearst_barcode=res[1]))
@@ -421,7 +421,7 @@ PlotStrengthExpr <- function(seurat.obj,nearest_ref_info,color=NULL,image.alpha 
 PlotDisExpr <- function(seurat.obj,nearest_ref_info,ref_col,layer='data',assay='SCT',gene,col='darkred',log.trans=F,filt_root=F,filt_far=NULL){
   
   st.p3 <- seurat.obj
-
+  
   st.p3$distance=0
   st.p3@meta.data[nearest_ref_info$query_barcode,'distance']=as.numeric(nearest_ref_info$distance)
   
@@ -451,8 +451,30 @@ PlotDisExpr <- function(seurat.obj,nearest_ref_info,ref_col,layer='data',assay='
                       cor.coef = T,add = 'loess',size = 0.25,alpha=0.2,cor.method = 'spearman',
                       add.params = list(color='darkred'))
   }
+  
+  
+  
 
+  if(log.trans){
+    df.new$distance <- log(df.new$distance+1)
+  }
+  if(!is.null(filt_far)){
+    df.new <- df.new[df.new$distance<=filt_far,]
+  }
+  if(filt_root){
+    df.new <- df.new[df.new$distance>0,]
+  }
+  
+  
+  p6 <- ggpubr::ggscatter(df.new,x='distance',y='target',conf.int = T,color =ref_col ,
+                          xlab = 'Distance',ylab = paste0('Relative Expression of ',gene),
+                          cor.coef = T,add = 'loess',size = 0.75,alpha=0.5,cor.method = 'spearman',
+                          add.params = list(color=col))
+  return(p6)
+}
 
+  
+  
 ###PlotDisProp 绘制距离与比例
 #log.trans 是指距离是否需要log校正，默认F
 #ref_col是距离ref的标签列名
