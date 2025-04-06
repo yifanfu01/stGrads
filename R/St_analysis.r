@@ -569,9 +569,4 @@ CalcDRG <- function(seurat.obj,nearest_ref_info,layer='data',assay='SCT',pthresh
   df.lm <- df.lm[df.lm$pvalue<pthresh,]
   return(df.lm)
 }
-
-
-
-
-
-
+######End
