@@ -24,7 +24,7 @@ st.hd <- readRDS('HD_demo_1.rds')
 
 SpatialDimPlot(st.hd,group.by = 'first_type',image.scale = 'hires',
                crop = T,shape=22,
-               pt.size.factor =80* sce1@images[["slice1"]]@scale.factors[["hires"]],
+               pt.size.factor =80* st.hd@images[["slice1"]]@scale.factors[["hires"]],
                alpha =0.75)+scale_fill_manual(values =c('#FFF68F','#CDBE70',
                                                         '#CD2626','#008B8B','#8B3A3A') )
 
