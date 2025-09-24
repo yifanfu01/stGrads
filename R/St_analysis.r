@@ -316,23 +316,25 @@ CalcNearDis_HD <- function(seurat.obj,celltype,query_celltype=NULL,
 
 
 
-PlotNearDis <- function(seurat.obj,nearest_ref_info,color=NULL,shape=21,max.dis=20,image.alpha = 0,
+PlotNearDis <- function(seurat.obj,nearest_ref_info,color=NULL,shape=21,max.dis=20,
+                        image.alpha = 0,img.use= "hires",
                         pt.size.factor = 4e3){
   library(ggpubr)
   st.p3 <- seurat.obj
   st.p3$distance=0
   st.p3@meta.data[nearest_ref_info$query_barcode,'distance']=as.numeric(nearest_ref_info$distance)
   st.p3$distance <- as.numeric(st.p3$distance)
-  
+
   if(is.null(color))
     color=c('darkblue','yellow')
-  
-  
-  p4 <- SpatialFeaturePlot(subset(st.p3,distance>0),features = 'distance',max.cutoff = max.dis,shape=shape,
+
+  #st.p3 <- UpdateSeuratObject(st.p3)
+  p4 <- SpatialFeaturePlot(subset(st.p3,distance>0),features = 'distance',max.cutoff = max.dis,
+                           shape=shape,image.scale=img.use,
                            image.alpha = image.alpha,pt.size.factor = pt.size.factor)+
     scale_fill_gradient(low = color[1],high = color[2])
   return(p4)
-  
+
 }
 
 
