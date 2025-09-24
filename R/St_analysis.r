@@ -561,7 +561,7 @@ CalcDRG <- function(seurat.obj,nearest_ref_info,layer='data',assay='SCT',pthresh
   }
   
   
-  df.expr <- as.matrix(t(GetAssayData(st.p3,assay = assay,layer = layer)))
+  df.expr <- t(as.matrix(GetAssayData(st.p3,assay = assay,layer = layer)))
   df.expr <- df.expr[rownames(df),]
   df.expr <- df.expr[,colSums(df.expr)!=0]
   print(paste0('Retrieved ',length(colnames(df.expr)),' none-zero genes to found DRGs'))
