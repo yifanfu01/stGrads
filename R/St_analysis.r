@@ -345,26 +345,28 @@ PlotNearDis <- function(seurat.obj,nearest_ref_info,color=NULL,shape=21,max.dis=
 
 
 
-PlotStrengthDis <- function(seurat.obj,nearest_ref_info,color=NULL,image.alpha = 0,pt.size.factor = 4e3){
+PlotStrengthDis <- function(seurat.obj,nearest_ref_info,color=NULL,image.alpha = 0,img.use='lowres',
+                            shape=21,pt.size.factor = 4e3){
   st.p3 <- seurat.obj
   st.p3$distance=0
   st.p3@meta.data[nearest_ref_info$query_barcode,'distance']=as.numeric(nearest_ref_info$distance)
   st.p3$distance <- as.numeric(st.p3$distance)
-  
+
   st.p3$strength.sum=0
   st.p3@meta.data[nearest_ref_info$query_barcode,'strength.sum']=as.numeric(nearest_ref_info$strength.sum)
   #st.p3$strength.sum <- as.numeric(st.p3$strength.sum)
-  
+
   if(is.null(color))
     color=c('lightgrey','darkgreen')
-  
-  
-  p4 <- SpatialFeaturePlot(subset(st.p3,distance>0),features = 'strength.sum',
+
+
+  p4 <- SpatialFeaturePlot(subset(st.p3,distance>0),features = 'strength.sum',shape = shape,image.scale = img.use,
                            image.alpha = image.alpha,pt.size.factor = pt.size.factor)+
     scale_fill_gradient(low = color[1],high = color[2])
   return(p4)
-  
+
 }
+
 
 
 
