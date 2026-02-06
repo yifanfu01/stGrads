@@ -98,7 +98,7 @@ find_nearest_ref <- function(query_col,query_row, ref_spot,max.r=50,model='Linea
         strength.sum=strength.sum+1/distances ###Linear
       if(model=='Exp')
         strength.sum=strength.sum+exp((-1)*distances) ###Exp
-      if(model=='Lg')
+      if(model=='Log')
         strength.sum=strength.sum+1/log(distances+1)  ###Lg
 
       nearest_ref=ifelse(min.dis>distances,rownames(ref_spot.filt)[i],
@@ -168,7 +168,8 @@ CalcNearDis <- function(seurat.obj,celltype,pheno_choose=NULL,calc.strength=FALS
 
   st.p3 <- seurat.obj
   names(st.p3@images) <- 'image1'
-  spot_coordinates <- st.p3@images$image1@coordinates
+  #spot_coordinates <- st.p3@images$image1@coordinates
+  spot_coordinates <- GetTissueCoordinates(st.p3)[,c(1,2)]  ##这里可能要更换版本
   if(is.null(pheno_choose))
     pheno_choose=celltype
 
@@ -176,9 +177,20 @@ CalcNearDis <- function(seurat.obj,celltype,pheno_choose=NULL,calc.strength=FALS
   query_spot = spot_coordinates[c(rownames(st.p3@meta.data[st.p3@meta.data[,celltype]=='Others',])),]
 
 
-  ref_spot <- ref_spot[ref_spot$tissue==1,]
-  query_spot <- query_spot[query_spot$tissue==1,]
+   # ref_spot <- ref_spot[ref_spot$tissue==1,]
+   # query_spot <- query_spot[query_spot$tissue==1,]
 
+
+
+
+  # find_nearest_ref(query_col = 43,query_row = 3,ref_spot = ref_spot)
+  # #"PDACP_8_GTCTATCTGAGTTTCT-1" "12"
+  # SpatialDimPlot(st.p3,cells.highlight =list (query='PDACP_8_AAACTGCTGGCTCCAA-1',
+  #                                             ref_nearst='PDACP_8_TACGACTGCCTCTTAG-1',
+  #                                             all_other_ref=rownames(ref_spot)[rownames(ref_spot)!='PDACP_8_TACGACTGCCTCTTAG-1']
+  # ),
+  # cols.highlight = c('darkred','darkgreen','darkblue','white')
+  # ,pt.size.factor = 4e3)
   if(!calc.strength){
     nearest_ref_info <- data.frame(query_barcode='',distance='',nearst_barcode='')
     for( i in 1:length(rownames(query_spot))){
@@ -252,7 +264,21 @@ CalcNearDis_HD <- function(seurat.obj,celltype,query_celltype=NULL,
 
 
   print(paste0('Query_spots numbers is:',length(rownames(query_spot))))
+  # ref_spot <- ref_spot[ref_spot$tissue==1,]
+  # query_spot <- query_spot[query_spot$tissue==1,]
 
+
+  # x(col) y (row)
+
+  #s_008um_00017_00821-1 4971.317 10048.944
+
+  # find_nearest_ref_HD(query_col =4971.317 ,query_row = 10048.944,ref_spot = ref_spot,max.r = 1000)
+  # #"s_008um_00032_00806-1" "155.076633447315"      "1"                     "0.314818629754032"
+  # SpatialDimPlot((sce1.cp),cells.highlight =list (query='s_008um_00017_00821-1',
+  #                                             ref_nearst='s_008um_00032_00806-1',
+  #                                             all_other_ref=rownames(ref_spot)[rownames(ref_spot)!='s_008um_00032_00806-1']
+  # ),
+  # cols.highlight = c('darkblue','darkred','darkgreen','white'))
   if(!calc.strength){
     nearest_ref_info <- data.frame(query_barcode='',distance='',nearst_barcode='')
     for( i in 1:length(rownames(query_spot))){
@@ -280,11 +306,9 @@ CalcNearDis_HD <- function(seurat.obj,celltype,query_celltype=NULL,
     for( i in 1:length(rownames(query_spot))){
       if(i %% 10000 ==1)
       {t.start=Sys.time()}
-
-
       res=find_nearest_ref_HD(query_col = query_spot[i,c('x')],
-                              query_row = query_spot[i,c('y')],
-                              ref_spot =ref_spot ,max.r = max.r,model=model)
+                           query_row = query_spot[i,c('y')],
+                           ref_spot =ref_spot ,max.r = max.r,model=model)
       nearest_ref_info <- rbind(nearest_ref_info,data.frame(query_barcode=rownames(query_spot)[i],
                                                             distance=res[2],strength=res[3],strength.sum=res[4],
                                                             nearst_barcode=res[1]))
@@ -317,7 +341,7 @@ CalcNearDis_HD <- function(seurat.obj,celltype,query_celltype=NULL,
 
 
 PlotNearDis <- function(seurat.obj,nearest_ref_info,color=NULL,shape=21,max.dis=20,
-                        image.alpha = 0,img.use= "lowres",
+                        image.alpha = 0,img.use= "hires",
                         pt.size.factor = 4e3){
   library(ggpubr)
   st.p3 <- seurat.obj
@@ -371,7 +395,6 @@ PlotStrengthDis <- function(seurat.obj,nearest_ref_info,color=NULL,image.alpha =
 
 
 
-
 ###PlotStrengthExpr 绘制Spot-强度、表达量
 #seurat.obj 输入对象，只可以包含一张图。
 #nearest_ref_info,是CalcNearDis的输出结果,且calc.strength=T
@@ -422,61 +445,38 @@ PlotStrengthExpr <- function(seurat.obj,nearest_ref_info,color=NULL,image.alpha 
 #nearest_ref_info是前面CalcNearDis的结果
 #filt_far 删去far距离（不含）以上的点，默认NULL不删除
 #filt_zero 删去核心点，仅HD
-PlotDisExpr <- function(seurat.obj,nearest_ref_info,ref_col,layer='data',assay='SCT',gene,col='darkred',log.trans=F,filt_root=F,filt_far=NULL){
+PlotDisExpr <- function(seurat.obj,nearest_ref_info,ref_col,layer='data',assay='SCT',gene,log.trans=F,filt_zero=F,filt_far=NULL){
 
   st.p3 <- seurat.obj
 
   st.p3$distance=0
   st.p3@meta.data[nearest_ref_info$query_barcode,'distance']=as.numeric(nearest_ref_info$distance)
-
-
+  st.p3$distance <- as.numeric(st.p3$distance)
   df <- st.p3@meta.data
   df$target <- GetAssayData(st.p3,assay = assay,layer = layer)[gene,]
-  #ggplot(df,aes(x=distance,y=target))+geom_point(size=0.25,alpha=I(1/2))+theme_pubr()
 
-  df$distance <- round(df$distance,digits =1 )
-  ggplot(df,aes(x=distance,y=target))+geom_point(size=0.25,alpha=I(1/2))+theme_pubr()
-  df.new <- aggregate(df$target,by=list(df$distance),mean)
-  colnames(df.new) <- c('distance','target')
-  {
-    df$group='orig'
-    df.new$group <- 'avg'
-    df.old <- df[,c('distance','target','group')]
-    colnames(df.old) <- c('distance','target','group')
-    colnames(df.new)<- c('distance','target','group')
-    df.use <- rbind(df.old,df.new)
-    ggplot(df.use,aes(x=distance,y=target))+geom_point(aes(colour=group,alpha=group,size=group))+
-      theme_pubr()+NoLegend()+scale_size_manual(values = c(1,0.25))+scale_alpha_manual(values = c(0.8,0.2))+scale_color_manual(values = c('darkred','grey'))
-    ggplot(df.use[df.use$distance>0 & df.use$distance<75,],aes(x=distance,y=target))+geom_point(aes(colour=group,alpha=group,size=group))+
-      theme_pubr()+NoLegend()+scale_size_manual(values = c(1,0.25))+scale_alpha_manual(values = c(0.8,0.2))+scale_color_manual(values = c('darkred','grey'))
-
-    ggpubr::ggscatter(df.old[df.old$distance>0 & df.old$distance<75,],x='distance',y='target',conf.int = T,
-                      xlab = 'distance',ylab = paste0('target'),color = 'grey',
-                      cor.coef = T,add = 'loess',size = 0.25,alpha=0.2,cor.method = 'spearman',
-                      add.params = list(color='darkred'))
-  }
-
-
-
-
+  # df$dis
+  # df$target
+  # p6 <- ggplot(df,aes(x=dis,y=target))+geom_point(aes(alpha=I(1/10),color=Duct2_MUC),size=0.75)+
+  #   geom_smooth(method = 'lm',se = T)+labs(x="Distance",y=paste0('Relative Expression of ',gene),title = 'Dist-Expr Relationship')+
+  #   ggpubr::theme_pubr()
   if(log.trans){
-    df.new$distance <- log(df.new$distance+1)
+    df$distance <- log(df$distance+1)
   }
   if(!is.null(filt_far)){
-    df.new <- df.new[df.new$distance<=filt_far,]
+    df <- df[df$distance<=filt_far,]
   }
-  if(filt_root){
-    df.new <- df.new[df.new$distance>0,]
+  if(filt_zero){
+    df <- df[df$distance>0,]
   }
 
 
-  p6 <- ggpubr::ggscatter(df.new,x='distance',y='target',conf.int = T,color =ref_col ,
+  p6 <- ggpubr::ggscatter(df,x='distance',y='target',conf.int = T,color =ref_col ,
                           xlab = 'Distance',ylab = paste0('Relative Expression of ',gene),
-                          cor.coef = T,add = 'loess',size = 0.75,alpha=0.5,cor.method = 'spearman',
-                          add.params = list(color=col))
+                          cor.coef = T,add = 'reg.line',size = 0.75,alpha=0.2,
+                          add.params = list(color='darkred'))
   return(p6)
 }
-
 
 
 ###PlotDisProp 绘制距离与比例
@@ -520,79 +520,7 @@ PlotDisProp <- function(seurat.obj,nearest_ref_info,ref_col,layer='data',assay='
 }
 
 
-PlotDRGs <- function(DRGs.df,rho.cut=0.2,n_show=10,col=c( 'darkred','gray','darkgreen')){
-  library(ggVolcano)
-  df.drg <- DRGs.df
-  df.drg <- add_regulate(df.drg,log2FC_name = 'rho',fdr_name = 'pvalue',log2FC = rho.cut,fdr = 0.1)
-  df.drg$regulate <- ifelse(df.drg$regulate=='Down','Neg',ifelse(df.drg$regulate=='Up','Pos','ns'))
-  colnames(df.drg) <- c('Rho','pValue','Related to distance')
-  df.drg$gene <-''
-
-  df.drg[rownames(DRGs[order(DRGs$rho,decreasing = F),])[1:n_show],'gene'] <- rownames(DRGs[order(DRGs$rho,decreasing = F),])[1:n_show]
-  df.drg[rownames(DRGs[order(DRGs$rho,decreasing = T),])[1:n_show],'gene'] <- rownames(DRGs[order(DRGs$rho,decreasing = T),])[1:n_show]
-  df.drg[df.drg$`Related to distance`=='ns','gene'] <- ''
 
 
-  ggplot(df.drg,aes(x=-log10(pValue),y=Rho,color=`Related to distance`))+geom_point(size=1)+ylim(-1,1)+
-    labs(x="-Log P-Value",y='Rho - Spearman')+theme_pubr()+scale_color_manual(values = col)+
-    geom_hline(yintercept = rho.cut,linewidth=0.5,linetype=3)+theme(legend.position = 'none')+
-    geom_vline(xintercept = 1,linewidth=0.5,linetype=3,color='gray')+theme(legend.position = 'none')+
-    geom_hline(yintercept = -1*rho.cut,linewidth=0.5,linetype=3)+ggrepel::geom_text_repel(aes(label=gene))+coord_flip()
-
-}
 
 
-CalcDRG <- function(seurat.obj,nearest_ref_info,layer='data',assay='SCT',pthresh=0.05,log.trans=F,filt_root=F,filt_far=NULL){
-
-  st.p3 <- seurat.obj
-  st.p3$distance=0
-  st.p3@meta.data[nearest_ref_info$query_barcode,'distance']=as.numeric(nearest_ref_info$distance)
-  df <- st.p3@meta.data
-
-
-  if(log.trans){
-    df$distance <- log(df$distance+1)
-  }
-  if(!is.null(filt_far)){
-    df <- df[df$distance<=filt_far,]
-  }
-  if(filt_root){
-    df <- df[df$distance>0,]
-  }
-
-
-  df.expr <- t(as.matrix(GetAssayData(st.p3,assay = assay,layer = layer)))
-  df.expr <- df.expr[rownames(df),]
-  df.expr <- df.expr[,colSums(df.expr)!=0]
-  print(paste0('Retrieved ',length(colnames(df.expr)),' none-zero genes to found DRGs'))
-  #df.expr.mtx <- df.expr
-  df.expr <- as.data.frame(df.expr)
-  # if(!identical(rownames(df),rownames(df.expr))){
-  #   print('Error: expr dataframe is not identical to distance dataframe.')
-  # }
-  df.dis <- as.data.frame(df$distance)
-  colnames(df.dis) <- 'distance'
-  rownames(df.dis) <- rownames(df)
-  df.expr <-cbind(df.dis,df.expr)
-  df.expr$distance <- round(df.expr$distance,digits =1 )
-
-  df.new <- aggregate(df.expr[,-1],by=list(df.expr$distance),mean)
-
-  colnames(df.new)[1] <- c('distance')
-  df.lm <- data.frame(gene=colnames(df.new)[-1],rho=0,pvalue=1,row.names = 1)
-
-
-  for( gene in rownames(df.lm)){
-
-    lm.df <- df.new[,c('distance',gene)]
-    colnames(lm.df) <- c('distance','target')
-    lm <- cor.test(x=lm.df$distance,y=lm.df$target,method = 'spearm',)
-    df.lm[gene,'rho'] <- lm$estimate
-    df.lm[gene,'pvalue'] <- lm$p.value
-  }
-
-
-  df.lm <- df.lm[df.lm$pvalue<pthresh,]
-  return(df.lm)
-}
-######End
