@@ -11,8 +11,21 @@ ggplot2==3.5.1
 ```
 Contact& Bugs: yf_pumc#163.com  
 ---  
-Tutorial for 10x Visium with Cell2location: [Visium Tutorial](Demo_for_Visium.r)  
-Tutorial for 10x HD with RCTD: [10xHD Tutorial](Demo_stGrads_HD.rmd)  
+For installation
+```
+# 1) If you don't have remotes yet:
+install.packages("remotes")
 
+# 2) Install stGrads from GitHub:
+remotes::install_github("yifanfu01/stGrads")
+
+# 3) Load the package:
+library(stGrads)
+
+# 4) Quick check:
+packageVersion("stGrads")
+
+```
+further tutorial including 10x Visium, and 10x HD with RCTD could be found in the [page](https://stgrads.readthedocs.io/en/latest/)
 
 The other tutorial handbook will be available soon.
