@@ -12,7 +12,8 @@ set.seed(1113)
 library(Seurat)
 library(ggsci)
 
-library(stGrads)
+#library(stGrads)
+source('~/yifanfu/Rserver/stGrad/R/St_analysis.r')
 library(stringr)
 options(future.globals.maxSize= 10*1024^3)
 ```
@@ -20,7 +21,7 @@ options(future.globals.maxSize= 10*1024^3)
 ### 0x02 loading demo data
 
 ```{r,echo=T,warning=F}
-st.hd <- readRDS('HD_demo_1.rds')
+st.hd <- readRDS('~/yifanfu/Rserver/BH/HD_demo_1.rds')
 
 SpatialDimPlot(st.hd,group.by = 'first_type',image.scale = 'hires',
                crop = T,shape=22,
@@ -70,8 +71,17 @@ dff.stg$strength.sum <- dff.stg$strength.sum/max(dff.stg$strength.sum)
 ### 0x04 Visualization
 
 ```{r, echo=T,warning=F}
-PlotNearDis(st.hd,nearest_ref_info = dis_mtx.Duct2_Mp,max.dis = 100,color = c('darkred','gray'),shape = 22,img.use = 'hires',image.alpha = 1,
-            pt.size.factor = 80* sce1@images[["slice1"]]@scale.factors[["hires"]])+labs(title='Duct 2 cell -> myCAF (r = 100um)')
+st.hd <- UpdateSeuratObject(st.hd)
+PlotNearDis(
+  st.hd,
+  nearest_ref_info = dis_mtx.Duct2_Mp,
+  max.dis       = 100,
+  color         = c("darkred","gray"),
+  shape         = 22,
+  img.use       = "hires",
+  image.alpha   = 1,
+  pt.size.factor = 80 * st.hd@images[["slice1"]]@scale.factors[["hires"]]
+) + labs(title = "Duct2 → Macrophage (r = 100 μm)")
 
 PlotStrengthDis(st.hd,nearest_ref_info = stg_mtx.Duct2_Mp,max.dis = 100,color = c('gray','darkgreen'),shape = 22,img.use = 'hires',image.alpha = 1,
                 pt.size.factor = 80* sce1@images[["slice1"]]@scale.factors[["hires"]])+labs(title='Duct 2 cell -> myCAF (r = 100um)')
