@@ -1,6 +1,6 @@
 #library(stGrads)
 source('~/yifanfu/Rserver/stGrad/R/St_analysis.r')
-source('~/yifanfu/Rserver/stGrad/R/HD_analysis.r')
+#source('~/yifanfu/Rserver/stGrad/R/HD_analysis.r')
 
 library(Seurat)
 set.seed(1113)
@@ -45,6 +45,39 @@ df.res <- CalcNearDis(
   max.r         = 10          # for Visium you can use 4; here 10 shows a wider range
 )
 
+
+######ADVANCED#########
+
+
+# 1. Define your custom function
+my_gaussian_decay <- function(d) {
+  return(exp(-(d^2) / 10))
+}
+# 2. Call the main function
+df.res_diy <- CalcNearDis(
+  st1.t1,
+  celltype      = 'MDSC_spot',
+  pheno_choose  = NULL,       # NOT RECOMMENDED now
+  calc.strength = TRUE,
+  model         = 'diy',   # 'Linear' | 'Log' | 'Exp'
+  max.r         = 10,          # for Visium you can use 4; here 10 shows a wider range
+  self_decay = my_gaussian_decay
+)
+
+PlotNearDis(
+  st1.t1,
+  nearest_ref_info = df.res_diy,
+  color            = c('darkred','gray'),
+  shape            = 21,
+  max.dis          = 6,
+  image.alpha      = 0.5,
+  img.use = 'lowres',
+  pt.size.factor   = 4e3
+)
+
+
+#######
+
 #Step3
 ##Visualization-basic
 PlotNearDis(
@@ -54,6 +87,7 @@ PlotNearDis(
   shape            = 21,
   max.dis          = 6,
   image.alpha      = 0.5,
+  img.use = 'lowres',
   pt.size.factor   = 4e3
 )
 

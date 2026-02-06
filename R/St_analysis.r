@@ -78,44 +78,88 @@ calculate_distance <- function(query_col,query_row, ref_col,ref_row) {
 
 
 
+###last version without DIY
+# find_nearest_ref <- function(query_col,query_row, ref_spot,max.r=50,model='Linear') {
+#   if(is.null(max.r))
+#   {max.r=999}
+#   min.dis=max.r+1
+#   nearest_ref='None'
+#   ref_spot.filt <- ref_spot[abs(ref_spot$row-query_row)<=max.r & abs(ref_spot$col-query_col)<=max.r,]
+#   strength.sum=0
+#   strength=0
+#   if(length(rownames(ref_spot.filt))!=0){
+#
+#     for( i in 1:length(rownames(ref_spot.filt))){
+#       distances=calculate_distance(query_col = query_col,query_row = query_row,
+#                                    ref_col = ref_spot.filt[i, 'col'],
+#                                    ref_row = ref_spot.filt[i,'row']
+#       )
+#       if(model=='Linear')
+#         strength.sum=strength.sum+1/distances ###Linear
+#       if(model=='Exp')
+#         strength.sum=strength.sum+exp((-1)*distances) ###Exp
+#       if(model=='Lg')
+#         strength.sum=strength.sum+1/log(distances+1)  ###Lg
+#
+#       nearest_ref=ifelse(min.dis>distances,rownames(ref_spot.filt)[i],
+#                          ifelse(min.dis==distances,paste0(nearest_ref,',',rownames(ref_spot.filt)[i]),nearest_ref))
+#       min.dis=ifelse(min.dis>distances,distances,min.dis)
+#
+#       # temp.df <- data.frame(ref=NULL,dis=NULL)
+#       # temp.df <- rbind(temp.df,data.frame(rownames(ref_spot)[i],distances))
+#       # print(temp.df)
+#     }
+#     strength=ifelse(min.dis<=max.r,length(str_split(nearest_ref,pattern = ',')[[1]]),0)
+#   }
+#
+#   return(c(nearest_ref, min.dis,strength,strength.sum))
+# }
 
-find_nearest_ref <- function(query_col,query_row, ref_spot,max.r=50,model='Linear') {
-  if(is.null(max.r))
-  {max.r=999}
-  min.dis=max.r+1
-  nearest_ref='None'
-  ref_spot.filt <- ref_spot[abs(ref_spot$row-query_row)<=max.r & abs(ref_spot$col-query_col)<=max.r,]
-  strength.sum=0
-  strength=0
-  if(length(rownames(ref_spot.filt))!=0){
+# Updated find_nearest_ref to support custom decay functions
+find_nearest_ref <- function(query_col, query_row, ref_spot, max.r=50, model='Linear', self_decay=NULL) {
+  if(is.null(max.r)) { max.r=999 }
 
-    for( i in 1:length(rownames(ref_spot.filt))){
-      distances=calculate_distance(query_col = query_col,query_row = query_row,
-                                   ref_col = ref_spot.filt[i, 'col'],
-                                   ref_row = ref_spot.filt[i,'row']
-      )
-      if(model=='Linear')
-        strength.sum=strength.sum+1/distances ###Linear
-      if(model=='Exp')
-        strength.sum=strength.sum+exp((-1)*distances) ###Exp
-      if(model=='Lg')
-        strength.sum=strength.sum+1/log(distances+1)  ###Lg
+  min.dis = max.r + 1
+  nearest_ref = 'None'
+  strength.sum = 0
+  strength = 0
 
-      nearest_ref=ifelse(min.dis>distances,rownames(ref_spot.filt)[i],
-                         ifelse(min.dis==distances,paste0(nearest_ref,',',rownames(ref_spot.filt)[i]),nearest_ref))
-      min.dis=ifelse(min.dis>distances,distances,min.dis)
+  # Filtering reference spots within a square bounding box for speed
+  ref_spot.filt <- ref_spot[abs(ref_spot$row - query_row) <= max.r & abs(ref_spot$col - query_col) <= max.r, ]
 
-      # temp.df <- data.frame(ref=NULL,dis=NULL)
-      # temp.df <- rbind(temp.df,data.frame(rownames(ref_spot)[i],distances))
-      # print(temp.df)
+  if(nrow(ref_spot.filt) > 0){
+    for(i in 1:nrow(ref_spot.filt)){
+      # Assuming calculate_distance is defined globally
+      distances = calculate_distance(query_col = query_col, query_row = query_row,
+                                     ref_col = ref_spot.filt[i, 'col'],
+                                     ref_row = ref_spot.filt[i, 'row'])
+
+      # Model selection logic
+      if(model == 'Linear') {
+        strength.sum = strength.sum + 1/distances
+      } else if(model == 'Exp') {
+        strength.sum = strength.sum + exp(-1 * distances)
+      } else if(model == 'Lg') {
+        strength.sum = strength.sum + 1/log(distances + 1)
+      } else if(model == 'diy' && !is.null(self_decay)) {
+        # Apply the user-defined function
+        strength.sum = strength.sum + self_decay(distances)
+      }
+
+      # Update nearest reference info
+      if(distances < min.dis) {
+        min.dis = distances
+        nearest_ref = rownames(ref_spot.filt)[i]
+      } else if(distances == min.dis) {
+        nearest_ref = paste0(nearest_ref, ',', rownames(ref_spot.filt)[i])
+      }
     }
-    strength=ifelse(min.dis<=max.r,length(str_split(nearest_ref,pattern = ',')[[1]]),0)
+    # Count how many references share the minimum distance
+    strength = ifelse(min.dis <= max.r, length(unlist(strsplit(nearest_ref, ","))), 0)
   }
 
-  return(c(nearest_ref, min.dis,strength,strength.sum))
+  return(c(nearest_ref, min.dis, strength, strength.sum))
 }
-
-
 
 find_nearest_ref_HD <- function(query_col,query_row, ref_spot,max.r=50,model='Linear') {
   library(stringr)
@@ -163,54 +207,101 @@ find_nearest_ref_HD <- function(query_col,query_row, ref_spot,max.r=50,model='Li
 #calc.strength 是否计算距离源强度，默认false
 #model是强度衰减模型
 #返回一个数据框
+##old version without DIY decay
+# CalcNearDis <- function(seurat.obj,celltype,pheno_choose=NULL,calc.strength=FALSE,model='Linear',max.r=10){
+#
+#   st.p3 <- seurat.obj
+#   names(st.p3@images) <- 'image1'
+#   spot_coordinates <- st.p3@images$image1@coordinates
+#   if(is.null(pheno_choose))
+#     pheno_choose=celltype
+#
+#   ref_spot = spot_coordinates[c(rownames(st.p3@meta.data[st.p3@meta.data[,celltype]==pheno_choose,])),]
+#   query_spot = spot_coordinates[c(rownames(st.p3@meta.data[st.p3@meta.data[,celltype]=='Others',])),]
+#
+#
+#   ref_spot <- ref_spot[ref_spot$tissue==1,]
+#   query_spot <- query_spot[query_spot$tissue==1,]
+#
+#   if(!calc.strength){
+#     nearest_ref_info <- data.frame(query_barcode='',distance='',nearst_barcode='')
+#     for( i in 1:length(rownames(query_spot))){
+#       res=find_nearest_ref(query_col = query_spot[i,c('col')],
+#                            query_row = query_spot[i,c('row')],
+#                            ref_spot =ref_spot ,max.r = max.r)
+#       nearest_ref_info <- rbind(nearest_ref_info,data.frame(query_barcode=rownames(query_spot)[i],
+#                                                             distance=res[2],
+#                                                             nearst_barcode=res[1]))
+#
+#     }
+#     nearest_ref_info <- nearest_ref_info[-1,]
+#   }
+#   else{
+#     nearest_ref_info <- data.frame(query_barcode='',distance='',nearst_barcode='',strength=0,strength.sum=0)
+#     for( i in 1:length(rownames(query_spot))){
+#       res=find_nearest_ref(query_col = query_spot[i,c('col')],
+#                            query_row = query_spot[i,c('row')],
+#                            ref_spot =ref_spot ,max.r = max.r,model=model)
+#       nearest_ref_info <- rbind(nearest_ref_info,data.frame(query_barcode=rownames(query_spot)[i],
+#                                                             distance=res[2],strength=res[3],strength.sum=res[4],
+#                                                             nearst_barcode=res[1]))
+#
+#     }
+#     nearest_ref_info$strength <- as.numeric(nearest_ref_info$strength)
+#     nearest_ref_info$strength.sum <- as.numeric(nearest_ref_info$strength.sum)
+#     nearest_ref_info <- nearest_ref_info[-1,]
+#   }
+#
+#
+#   return(nearest_ref_info)
+#
+# }
 
-CalcNearDis <- function(seurat.obj,celltype,pheno_choose=NULL,calc.strength=FALSE,model='Linear',max.r=10){
+# Updated CalcNearDis to pass the self_decay function through
+CalcNearDis <- function(seurat.obj, celltype, pheno_choose=NULL, calc.strength=FALSE,
+                        model='Linear', max.r=10, self_decay=NULL){
 
   st.p3 <- seurat.obj
+  # Ensure the image name is standardized
   names(st.p3@images) <- 'image1'
   spot_coordinates <- st.p3@images$image1@coordinates
-  if(is.null(pheno_choose))
-    pheno_choose=celltype
 
-  ref_spot = spot_coordinates[c(rownames(st.p3@meta.data[st.p3@meta.data[,celltype]==pheno_choose,])),]
-  query_spot = spot_coordinates[c(rownames(st.p3@meta.data[st.p3@meta.data[,celltype]=='Others',])),]
+  if(is.null(pheno_choose)) pheno_choose = celltype
 
+  # Subset spots based on metadata labels
+  ref_spot = spot_coordinates[rownames(st.p3@meta.data[st.p3@meta.data[,celltype] == pheno_choose, ]), ]
+  query_spot = spot_coordinates[rownames(st.p3@meta.data[st.p3@meta.data[,celltype] == 'Others', ]), ]
 
-  ref_spot <- ref_spot[ref_spot$tissue==1,]
-  query_spot <- query_spot[query_spot$tissue==1,]
+  # Ensure we only calculate for spots actually in the tissue
+  ref_spot <- ref_spot[ref_spot$tissue == 1, ]
+  query_spot <- query_spot[query_spot$tissue == 1, ]
 
-  if(!calc.strength){
-    nearest_ref_info <- data.frame(query_barcode='',distance='',nearst_barcode='')
-    for( i in 1:length(rownames(query_spot))){
-      res=find_nearest_ref(query_col = query_spot[i,c('col')],
-                           query_row = query_spot[i,c('row')],
-                           ref_spot =ref_spot ,max.r = max.r)
-      nearest_ref_info <- rbind(nearest_ref_info,data.frame(query_barcode=rownames(query_spot)[i],
-                                                            distance=res[2],
-                                                            nearst_barcode=res[1]))
+  # Optimization: Use lapply instead of rbind in a loop for better performance
+  results_list <- lapply(1:nrow(query_spot), function(i) {
+    res = find_nearest_ref(query_col = query_spot[i, 'col'],
+                           query_row = query_spot[i, 'row'],
+                           ref_spot = ref_spot,
+                           max.r = max.r,
+                           model = model,
+                           self_decay = self_decay)
 
+    if(!calc.strength){
+      return(data.frame(query_barcode = rownames(query_spot)[i],
+                        distance = res[2],
+                        nearst_barcode = res[1]))
+    } else {
+      return(data.frame(query_barcode = rownames(query_spot)[i],
+                        distance = res[2],
+                        strength = as.numeric(res[3]),
+                        strength.sum = as.numeric(res[4]),
+                        nearst_barcode = res[1]))
     }
-    nearest_ref_info <- nearest_ref_info[-1,]
-  }
-  else{
-    nearest_ref_info <- data.frame(query_barcode='',distance='',nearst_barcode='',strength=0,strength.sum=0)
-    for( i in 1:length(rownames(query_spot))){
-      res=find_nearest_ref(query_col = query_spot[i,c('col')],
-                           query_row = query_spot[i,c('row')],
-                           ref_spot =ref_spot ,max.r = max.r,model=model)
-      nearest_ref_info <- rbind(nearest_ref_info,data.frame(query_barcode=rownames(query_spot)[i],
-                                                            distance=res[2],strength=res[3],strength.sum=res[4],
-                                                            nearst_barcode=res[1]))
+  })
 
-    }
-    nearest_ref_info$strength <- as.numeric(nearest_ref_info$strength)
-    nearest_ref_info$strength.sum <- as.numeric(nearest_ref_info$strength.sum)
-    nearest_ref_info <- nearest_ref_info[-1,]
-  }
-
+  # Combine all list elements into a single data frame
+  nearest_ref_info <- do.call(rbind, results_list)
 
   return(nearest_ref_info)
-
 }
 
 
