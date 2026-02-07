@@ -4,6 +4,7 @@
 .RData
 .Rproj
 .Ruserdata
+./R/st_analysis_CN.r
 *.png
 =======
 # History files

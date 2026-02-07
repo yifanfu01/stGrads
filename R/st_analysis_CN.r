@@ -199,10 +199,14 @@ find_nearest_ref_HD <- function(query_col,query_row, ref_spot,max.r=50,model='Li
 }
 
 
-
-
-
-
+###CalcNearDis 计算最近距离矩阵
+#seurat.obj 输入对象，只可以包含一张图。
+#celltype是对应的细胞标签列名,且该列默认为同样的
+#pheno_choose, 若上一列表，列名内选择不相同，则pheno_choose为选择的阳性，默认NULL，与celltype相同
+#max.r 是传入find_nearest_ref的max.r 通常表示距离，默认Visium=10
+#calc.strength 是否计算距离源强度，默认false
+#model是强度衰减模型
+#返回一个数据框
 ##old version without DIY decay
 # CalcNearDis <- function(seurat.obj,celltype,pheno_choose=NULL,calc.strength=FALSE,model='Linear',max.r=10){
 #
@@ -301,7 +305,9 @@ CalcNearDis <- function(seurat.obj, celltype, pheno_choose=NULL, calc.strength=F
 }
 
 
-
+#HD函数可以不使用Find来定义primary spot，而是直接指定特定的细胞
+#resolution 默认8um，用来归一化物理距离
+#query_celltype是特定的查询亚群,NULL则为所有的亚群
 
 CalcNearDis_HD <- function(seurat.obj,celltype,query_celltype=NULL,
                            pheno_choose=NULL,calc.strength=FALSE,model='Linear',
@@ -392,7 +398,12 @@ CalcNearDis_HD <- function(seurat.obj,celltype,query_celltype=NULL,
 
 
 
-
+###PlotNearDis 绘制Spot-最近距离
+#seurat.obj 输入对象，只可以包含一张图。
+#nearest_ref_info,是CalcNearDis的输出结果
+#color是颜色向量，默认darkblue=yellow
+#max.dis，最远距离颜色阈值，默认20(spot)
+#shape是圆形21（默认），HD可以改为22方块
 
 
 
@@ -418,6 +429,12 @@ PlotNearDis <- function(seurat.obj,nearest_ref_info,color=NULL,shape=21,max.dis=
 }
 
 
+
+###PlotStrengthDis 绘制Spot-最近距离
+#seurat.obj 输入对象，只可以包含一张图。
+#nearest_ref_info,是CalcNearDis的输出结果,且calc.strength=T
+#color是颜色向量，默认darkblue=yellow
+#
 
 
 
@@ -445,6 +462,13 @@ PlotStrengthDis <- function(seurat.obj,nearest_ref_info,color=NULL,image.alpha =
 
 
 
+
+###PlotStrengthExpr 绘制Spot-强度、表达量
+#seurat.obj 输入对象，只可以包含一张图。
+#nearest_ref_info,是CalcNearDis的输出结果,且calc.strength=T
+#color是颜色向量，默认darkblue=yellow
+#gene是表达量
+#
 
 
 
@@ -483,6 +507,12 @@ PlotStrengthExpr <- function(seurat.obj,nearest_ref_info,color=NULL,image.alpha 
 
 
 
+###PlotDisExpr 绘制距离与表达量
+#log.trans 是指距离是否需要log校正，默认F
+#ref_col是距离ref的标签列名
+#nearest_ref_info是前面CalcNearDis的结果
+#filt_far 删去far距离（不含）以上的点，默认NULL不删除
+#filt_zero 删去核心点，仅HD
 PlotDisExpr <- function(seurat.obj,nearest_ref_info,ref_col,layer='data',assay='SCT',gene,col='darkred',log.trans=F,filt_root=F,filt_far=NULL){
 
   st.p3 <- seurat.obj
@@ -540,7 +570,11 @@ PlotDisExpr <- function(seurat.obj,nearest_ref_info,ref_col,layer='data',assay='
 
 
 
-
+###PlotDisProp 绘制距离与比例
+#log.trans 是指距离是否需要log校正，默认F
+#ref_col是距离ref的标签列名
+#nearest_ref_info是前面CalcNearDis的结果
+#show.gene是是否需要用点表示表达量，默认NULL,否则请传入基因名
 
 PlotDisProp <- function(seurat.obj,nearest_ref_info,ref_col,layer='data',assay='SCT',size=0.8,alpha=0.5,prop_cell,show.gene=NULL,log.trans=F){
 
